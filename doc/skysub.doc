@@ -1,0 +1,1460 @@
+
+      THE PYTHON MODULE "SKYSUB"
+
+Skysub was written originally in C, and wrapped to create a 
+python module using David Beazley's very useful SWIG program.
+Skysub contains essentially all the functions from skycalc,
+with minor modifications in some cases to make them more
+suitable to a standalone environment.  
+
+ACCESSING THE MODULE FROM PYTHON
+
+These remarks are general for any python module -- skip it
+if you know this stuff.
+
+In order to use this module it must be installed somewhere
+where your system will look for it.  The environment variable
+PYTHONPATH lists, in order, the directories which Python will
+search for a module (it's analagous to the PATH environment
+variable used by your Unix or Linux shell).  If you've
+installed Pyraf as I recommend, one place to stick the
+executable would be 
+
+/usr/local/pyraf/stsci_python/Lib/lib/python2.2/site-packages
+
+... quite a mouthful, but a standard place for your stuff.
+
+To set an environment variable under the C-shell, go to
+your .cshrc file and follow the models there.  To set it
+under the bash shell (default in most linuces) look in 
+.bash_profile, and follow the models there.  In that case
+don't forget to add PYTHONPATH to the list of environment
+variables being exported.  You'll have to "source .cshrc"
+or "source .bash_profile" for the change to take effect.
+To check the value of an environment variable FOO, type
+
+echo $FOO
+
+in either shell (don't forget the dollar sign).
+
+As with any python module, once an executable skysub.so is
+copied to somewhere on your PYTHONPATH, you should be able
+to get at the routines with 
+
+from skysub import *
+
+or, if you want to prepend all the routine names with "skysub.",
+simply
+
+import skysub
+
+If you use this latter syntax, typing "dir(skysub)" will
+generate a long, long listing of all the routine names,
+plus the defined constants, utility routines, and everything.
+Then you'll know you got it.
+
+
+[thorsten@allemande thorsten]$ python
+Python 2.2 (#3, May 30 2002, 10:10:20) 
+[GCC 2.96 20000731 (Red Hat Linux 7.1 2.96-81)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import skysub
+>>> dir(skysub)
+['ALT_15', 'ALT_2', 'ALT_3', 'ARCSEC_IN_RADIAN', 'ASTRO_UNIT', 'BUFSIZE', 'DEG_IN_RADIAN', 'EARTHRAD_IN_AU', ....
+
+and much, much more.
+
+
+HOW ARGUMENTS GET PASSED TO SKYSUB ROUTINES
+
+SWIG does a fabulous job of translating from C to Python,
+but it's not always perfect (in some cases perhaps because of
+my limited understanding of how to use it.  Life is short, and
+this is not my real job.)   
+
+First, the easy case.  C functions which return a single value 
+will return a single value in Python, too.  For example, the 
+routine "lst" which calculates the sidereal time given 
+the julian date and the west longitude in hours works 
+just as it does in C:
+
+>>> from skysub import *
+>>> lst(2452422.,7.41)
+20.914890588157988
+>>> 
+
+Other functions which compute more than one value generally
+return one or more of their values through pointer arguments
+in the original C.  The function "altit" is an example --
+its return value is the altitude above the horizon of 
+an object given its its dec, its HA, and the observatory
+latitude.  However, it also computes the azimuth and the 
+parallactic angle and hands those back through pointer 
+arguments: the original C declaration is
+
+double altit(double dec,double ha,double lat,double *az,double *parang)
+
+The python-wrapped routine in this case comes out nicely
+Pythonic, in that it takes only the dec, HA, and latitude
+as its actual arguments, and then returns a list of all
+the return values (this behavior is created by specifying
+the arguments properly in the wrapper file skysub.i).
+Here's the function at work:
+
+>>> altit(-10.,1.,32.)
+(45.617577358990978, 201.37150373348294, 18.288854873658181)
+>>> 
+
+So an object at dec -10., HA +1 h west, as viewed from a 
+latitude of +32 degrees, will be 45.6 degrees above the 
+horizon, in azimuth 201.4 degrees, and will have a parallactic
+angle of 18.3 degrees.  The user doesn't need to worry 
+about the C pointers; the values have been unpacked for
+you.
+
+In some cases this isn't good enough, though, and you
+do have to do something with pointers.  The planetary
+positions routine is an example - it passes back the 
+positions of all the planets through two arrays of pointers
+to doubles, one for the RAs and one for the decs:
+
+void pposns(double jd, double lat, double sid,
+                int print_option, double *planra, double *plandec)
+ 
+To call this from Python, you first must explicitly create
+arrays of pointers:
+
+>>> planra = ptrcreate("double",0.,10)
+>>> plandec = ptrcreate("double",0.,10)
+
+Each of these creates an array of 10 pointers to doubles,
+initialized to carry a value of zero.  The call to pposns
+can now proceed following a call to "comp_el" which computes
+the planetary elements at the relevant jd:
+
+>>> comp_el(245222.)
+>>> pposns(2452222.,32.,10.,0,planra,plandec)
+
+(If you specify "1" for the fourth argument, a table of planetary
+positions is printed).  
+
+That's fine, but what happened to your return values?  You can
+access those with "ptrvalue", as follows:
+
+>>> ptrvalue(planra,2)
+13.890601444366562
+>>> ptrvalue(plandec,2)
+-10.124370804177728
+
+So Venus (planet 2) is at RA = 13.89 h and dec = -10.12 deg.
+
+Note that ptrcreate and ptrvalue are in skysub's namespace --
+they're not Python primitives or anything.  As noted earlier,
+with any Python module, you have a choice of importing the
+module with "from skysub import *" or with "import skysub";
+if you choose the latter, you'd have to say (for example)
+"skysub.ptrvalue" instead of "ptrvalue" in the example above.
+Purists avoid the "from ... import *" construction, because
+it increases the probability of name collisions.
+
+
+
+Data structures present a still more complicated problem, but
+SWIG soldiers on to produce a fairly complete, if rather 
+verbose, solution.   An example is best here.  Skycalc
+has a datatype called struct date_time which is as follows:
+
+struct date_time
+   {
+        int y;
+        int mo;
+        int d;
+        int h;
+        int mn;
+        float s;
+   };
+
+SWIG lets you create such a thing with e.g.
+
+mydate = new_date_time()
+
+Setting the elements is done as follows:
+
+date_time_y_set(mydate,2004)
+date_time_mo_set(mydate,5)
+date_time_d_set(mydate,23)    
+
+and so on.  To access the elements, use e.g.
+
+yyyy = date_time_y_get(mydate)
+
+The routine "caldat" is a good example; it turns a 
+julian date into a calendar date.  A pointer argument
+returns the day of the week in the original C; this is
+handed back as a simple number in the python version.
+The C declaration is:
+
+caldat(double jdin,struct date_time *date, int *dow)
+
+In python this is employed as follows:
+
+>>> from skysub import *
+>>> mydate = new_date_time()
+>>> caldat(2452222.,mydate)
+3
+>>> date_time_y_get(mydate)
+2001
+>>> date_time_mo_get(mydate)
+11
+>>> date_time_d_get(mydate)
+8
+>>> date_time_h_get(mydate)
+12
+>>> 
+
+... so JD 2452222. was 2001 November 12, at 12 h UT.
+And the 3 means it was a Thursday (0 = Monday, 1 = 
+Tuesday, etc.)
+
+
+The one difficulty I've not solved yet with this scheme
+is how to return variable-length character strings which
+are handed in as pointers in C.  The one place this comes
+up is "load_site".  It's probably possible to do this
+gracefully, but I gave up because life is short, and 
+simply coded a python replacement, "py_load_site", which
+is in pysky.py.  It simply hands back an ordered list
+of site parameters, which are in a globally-defined
+Python dictionary.  
+
+DATA STRUCTURES:
+
+There are only two, and they are self-explanatory:
+
+struct coord
+   {
+     int sign;  /* carry sign explicitly since -0 not neg. */
+     double hh;
+     double mm;
+     double ss;
+   };
+
+struct date_time
+   {
+        int y;
+        int mo;
+        int d;
+        int h;
+        int mn;
+        float s;
+   };
+
+DEFINED CONSTANTS:
+
+Again, mostly self-explanatory.  Not all these are used much, but
+some are pretty handy.  This section is clipped directly from 
+skysub.h with little editing.
+
+/* some (not all) physical, mathematical, and astronomical constants
+   used are defined here. */
+
+#define  PI                3.14159265358979
+#define  TWOPI             6.28318530717959
+#define  PI_OVER_2         1.57079632679490  /* From Abramowitz & Stegun */   
+#define  ARCSEC_IN_RADIAN  206264.8062471
+#define  DEG_IN_RADIAN     57.2957795130823
+#define  HRS_IN_RADIAN     3.819718634205
+#define  KMS_AUDAY         1731.45683633   /* km per sec in 1 AU/day */
+#define  SPEED_OF_LIGHT    299792.458      /* in km per sec ... exact. */
+#define  SS_MASS           1.00134198      /* solar system mass in solar units */
+#define  J2000             2451545.        /* Julian date at standard epoch */
+#define  SEC_IN_DAY        86400.
+#define  FLATTEN           0.003352813   /* flattening of earth, 1/298.257 */
+#define  EQUAT_RAD         6378137.    /* equatorial radius of earth, meters */
+#define  EARTHRAD_IN_AU    23454.7910556298  /* number of earth rad in 1 au */
+#define  ASTRO_UNIT        1.4959787066e11 /* 1 AU in meters */
+#define  RSUN              6.96000e8  /* IAU 1976 recom. solar radius, meters */
+#define  RMOON             1.738e6    /* IAU 1976 recom. lunar radius, meters */
+#define  PLANET_TOL        3.          /* flag if nearer than 3 degrees 
+						to a major planet ... */
+#define  KZEN              0.172       /* zenith extinction, mag, for use
+				     in lunar sky brightness calculations. */
+#define FIRSTJD            2415387.  /* 1901 Jan 1 -- calendrical limit */
+#define LASTJD             2488070.  /* 2099 Dec 31 */
+
+These utility constants are used as flags for the "cooxform" routine.
+They define the sense of the transformation (to or from a standard
+epoch), and whether nutation and aberration are included (it's not
+always appropriate!)
+
+#define XFORM_FROMSTD  1  /* defined quantities for apparent place transforms .. */
+#define XFORM_TOSTDEP  -1
+#define XFORM_JUSTPRE  1
+#define XFORM_DOAPPAR  0
+#define XFORM_DOABER   1
+#define XFORM_NOABER   0
+
+
+/* MAGIC NUMBERS which might depend on how accurately double-
+   precision floating point is handled on your machine ... */
+
+#define  EARTH_DIFF        0.05            /* used in numerical
+   differentiation to find earth velocity -- this value gives
+   about 8 digits of numerical accuracy on the VAX, but is 
+   about 3 orders of magnitude larger than the value where roundoff
+   errors become apparent. */
+
+#define  MIDN_TOL          0.00001         /* this is no longer
+   used -- it was formerly
+   how close (in days) a julian date has to be to midnight
+   before a warning flag is printed for the reader.  VAX
+   double precision renders a Julian date considerably
+   more accurately than this.  The day and date are now based
+   on the same rounding of the julian date, so they should
+   always agree. */
+
+Some utility constants, not of much interest:
+
+#define SYS_CLOCK_OK 1    /* 1 means ANSI-standard time libraries do work,
+   2 means they don't.  This is used by compiler switches in file 5 and
+   the main program.  */
+#define LOG_FILES_OK 1  /* 1 means that log files are enabled.
+			Any other value means they're not.  */
+#define MAX_OBJECTS 500
+#define MINSHORT -32767   /* min, max short integers and double precision */
+#define MAXSHORT 32767
+#define MAXDOUBLE 1.0e38
+#define MINDOUBLE -1.0e38
+#define BUFSIZE 150 
+
+#define ALT_3  19.47  /* 19.47 degrees altitude => sec z = 3 */
+#define ALT_2  30.
+#define ALT_15 41.81
+#define SID_RATE 1.0027379093  /* sidereal / solar rate */
+
+
+I/O AND DATA CONVERSION ROUTINES 
+
+
+double bab_to_dec(struct coord bab)
+
+  Converts a "babylonian" (sexigesimal) structure into 
+  double-precision floating point ("decimal") number.  Note that 
+  the definition of struct coord earlier. 
+
+void dec_to_bab (double deci, struct coord *bab)
+ 
+  Converts a decimal to the hours-minutes-seconds structure.
+
+int get_line(char *s)
+              
+  Gets a line terminated by end-of-line and returns number of characters.
+  Shouldn't be used much from Python.
+
+double get_coord()
+
+  Grabs a coordinate triplet from the terminal and returns its decimal
+  value.  Correctly handles the "-0" case.
+
+void put_coords(double deci, int prec, int showsign) 
+void put_colon_coords(double deci, int prec, int showsign)
+void fput_coords(FILE *outf, double deci, int prec, int showsign) 
+
+  These are the top-level routine for putting out coordinate triples (hms or
+  dms).  The first two routines are identical except the latter inserts colons 
+  between the fields, and the first leaves spaces.  "fput_coords" writes
+  to file FILE.  
+
+  The coordinate is handed in as a decimal (e.g. decimal hours);
+  it's printed to precision "prec", where
+
+	prec = 0    hh mm
+        prec = 1    hh mm.m
+        prec = 2    hh mm ss
+        prec = 3    hh mm ss.s
+    
+   ... and so on up to prec = 9 (the algorithm fails beyond that).
+
+  This is very tricky because of the necessity to carry the roundoff 
+  correctly, e.g. 
+	
+	3 59 59.9 at prec=2 should be 4 00 00, not 3 59 60
+
+  put_coords calls the lower-level routines , which ordinarily need
+  not be called directly.
+
+double round(double x, int places) 
+
+  Rounds argument x to places places, e.g. 2.32839,1 -> 2.3.  For use in 
+  putting out coordinates.
+
+void round_coord(struct coord *incoord, struct coord *outcoord, int prec) 
+
+  Rounds the seconds of a struct coord to a specified precision;
+   if they turn out to be sixty, does the carry to the other fields.
+
+	precision 0 -- whole minutes  (seconds set to zero)
+	          1 -- tenths of a minute (seconds set to zero)
+		  2 -- whole seconds
+		  3 -- tenths of a second
+	  	  4 -- hundredths ... 
+				etc.
+void put_hrs(double hrs, int sign, int width, int showpos, int alignsign) 
+
+   Puts out the hours (or decimal degrees) with the 
+   following format information:
+
+	-- Allows "width" digits of space for hours;
+		e.g. -20 would be width 2. 
+	-- if showpos == 1, prints a + sign if result is
+                positive.
+        -- if alignsign == 1, prints sign before the field;
+		otherwise places sign flush with digit.
+
+void fput_hrs(FILE *outf, double hrs, int sign, int width,
+			int showpos, int alignsign) 
+
+   Identical to put_hrs, but puts to a file.
+
+void fput_coords(FILE *outf, double deci, int prec, int showsign) 
+  
+   Identical to fput_coords, but puts to a file.
+
+
+void load_site(char *instring,
+		double *longit,double *lat,double *stdz,int *use_dst,
+	char *zone_name,char *zabr,double *elevsea, double *elev,
+		double *horiz, char *site_name)
+
+   Probably better not use this - use py_load_site instead.  
+
+
+SPHERICAL ASTRONOMY AND MATH LOW-LEVEL UTILITIES
+
+
+double atan_circ(double x, double y)
+
+  This duplicates the atan2 function in the math library, written
+  before I knew there was such a thing.  Return value is in radians.
+
+double frac_part(double x) 
+
+  Returns the fractional part of a double precision number. 
+
+double circulo(double x)
+
+ Assuming x is an angle in degrees, returns m
+
+void min_max_alt(double lat,double dec,double *min, double *max)
+
+  Computes minimum and maximum altitude above the horizon for a an
+  object at given dec as viewed from a particular latitude.
+  Input in decimal degrees.  Python routine takes two args and
+  returns a list containing min and max altitudes. 
+
+double altit(double dec,double ha,double lat,double *az,double *parang)
+            
+  Returns altitude(degr) for dec, ha, lat (decimal degr, hr, degr); 
+  also computes and returns azimuth through pointer argument,
+  and as an extra added bonus returns parallactic angle (decimal degr)
+    through another pointer argument.
+
+  In Python wrap version, takes three input arguments and returns three
+  outputs in a list.
+
+double secant_z(double alt)
+
+  Computes the secant of z, assuming the object is not
+  too low to the horizon; returns 100. if the object is
+  low but above the horizon, -100. if the object is just
+  below the horizon.   The sec z approx to airmass breaks down there
+  anyway, and this avoids overflowing spaces allotted.
+
+double true_airmass(double secz) 
+
+	/* returns the true airmass for a given secant z. */
+	/* The expression used is based on a tabulation of the mean KPNO 
+           atmosphere given by C. M. Snell & A. M. Heiser, 1968,
+	   PASP, 80, 336.  They tabulated the airmass at 5 degr 
+           intervals from z = 60 to 85 degrees; I fit the data with 
+           a fourth order poly for (secz - airmass) as a function of
+           (secz - 1) using the IRAF curfit routine, then adjusted the
+           zeroth order term to force (secz - airmass) to zero at
+           z = 0.  The poly fit is very close to the tabulated points
+	   (largest difference is 3.2e-4) and appears smooth.  
+           This 85-degree point is at secz = 11.47, so for secz > 12
+           I just return secz - 1.5 ... about the largest offset 
+           properly determined. */
+
+double ha_alt(double dec, double lat, double alt)
+       
+   returns hour angle at which object at dec is at altitude alt,
+   for geographical latitude lat.
+   If object is never at this altitude, signals with special 
+   return values 1000 (always higher) and -1000 (always lower). 
+
+   Input values are in decimal degrees, output is decimal hours.
+	
+double subtend(double ra1, double dec1, double ra2, double dec2)
+              
+  args in dec hrs and dec degrees - return value in radians. 
+  returns angle subtended by two positions in the sky --
+   Hybrid algorithm works down to zero separation except very 
+   near the poles. 
+
+xxxxxxxxxxxxxxxxxxxxxxx
+
+int get_pm(double dec, double *mura, double *mudec) 
+
+	/* This gets the proper motions.  New routine
+	(2/94) assumes that primary PM convention will
+	be rate of change of right ascension in seconds
+	of time per year.  Either one can be entered here,
+	but the value passed out is seconds of time per year at the
+        equator (i.e., rate of change of RA itself). */
+
+xxxxxxxxxxxxxxxxxxxxxxx
+
+int get_date(struct date_time *date) 
+
+  Gets the date portion of a date from the command line, used in the 
+  C program, not probably not needed for python.
+
+int get_time(struct date_time *date) 
+
+  Gets the time portion of a date from the command line, used in the 
+  C program, not probably not needed for python.
+
+xxxxxxxxxxxxxxxxxxxxxxxx
+
+CALENDRICAL ROUTINES
+
+double date_to_jd(struct date_time date)
+
+  Converts a date (structure) into a julian date.  Only good for 
+  1900 -- 2100. 
+
+int day_of_week(double jd)
+
+  Returns day of week for a jd, 0 = Mon, 6 = Sun. */
+
+caldat(double jdin,struct date_time *date, int *dow)
+           
+  Returns date and time for a given julian date;
+  also returns day-of-week coded 0 (Mon) through 6 (Sun).
+  Adapted from Jean Meeus' "Astronomical Formulae for
+  Calculators", pub. by Willman-Bell.  Good from the 
+  onset of the Gregorian calendar through 3000 AD.
+
+  See the earlier notes about how the date structure gets
+  passed; the day of week is passed back as a return value.
+
+double day_of_year(double jd) 
+ 
+  Returns the day of the year (UT), given the jd.  12 h UT 
+  on Jan 1 is returned as 1.5.
+
+void print_day(int d)
+ 
+  Prints out the day of the week given the day of week returned
+  by caldat, as a three-letter abbreviation.  Does not put a 
+  carriage return at the end.
+
+void print_all(double jdin)
+
+  Prints the whole date give a julian date.  Does not put a 
+  carriage return at the end.
+
+void print_current(struct date_time date,int night_date,
+			int enter_ut) 
+
+  Prints out the date & time and a little statement
+  of whether time is "local" or "ut".  Functionalized to 
+  compactify some later code. 
+
+void print_calendar(double jdin,int *dow)
+                   
+  Given a julian date prints a year, month, day.
+  Also eturns day of week (0 - 6) for optional printing ---
+  idea is to do one roundoff only to eliminate possibility
+  of day/date disagreement. 
+
+void print_time(double jdin, int prec)
+
+  given a julian day, prints time only; 
+  special precision of "-1" prints only hours!  
+
+ASTRONOMICAL TIME UTILIITIES
+
+double lst(double jd, double longit) 
+           
+  returns the local MEAN sidereal time (dec hrs) at julian date jd
+  at west longitude long (decimal hours).  Follows
+  definitions in 1992 Astronomical Almanac, pp. B7 and L2. 
+  Expression for GMST at 0h ut referenced to Aoki et al, A&A 105,
+  p.359, 1982.  On workstations, accuracy (numerical only!)
+  is about a millisecond. 
+
+double adj_time(double x)
+
+  adjusts a time (decimal hours) to be between -12 and 12, 
+  generally used for hour angles.  
+
+MOON AND SUN
+
+void lpmoon(double jd, double lat, double sid, 
+			double *ra, double *dec, double *dist)  
+
+  Implements "low precision" moon algorithms from
+   Astronomical Almanac (p. D46 in 1992 version).  Does
+   apply the topocentric correction.  Good to a few tenths
+   of a degree.
+
+   Units are as follows
+
+     jd,lat, sid;     decimal hours 
+     *ra, *dec,       decimal hours, degrees 
+	*dist;        earth radii 
+
+  Python version takes only jd, lat, and sidereal time as arguments,
+  and returns a list of [ra, dec, dist]
+
+void lpsun(double jd, double *ra, double *dec)
+
+ Low precision formulae for the sun, from Almanac p. C24 (1990) 
+  ra and dec are returned as decimal hours and decimal degrees. 
+  Good to a few hundredths of a degree.  No topocentric correction
+  (horizontal parallax of the sun is only about 8 arcsec).  Python
+  version takes only one argument and returns list of [ra, dec]
+
+ASTRONOMICAL TRANSFORMATIONS
+
+void eclrot(double jd, double *x, double *y, double *z)
+           
+ rotates ecliptic rectangular coords x, y, z to
+   equatorial (all assumed of date.)   This is used internally but
+   has not been properly wrapped for Python yet. 
+
+void geocent(double geolong,double geolat,double height,double *x_geo,
+	double *y_geo, double *z_geo)
+            
+  computes the geocentric coordinates from the geodetic 
+  (standard map-type) longitude, latitude, and height. 
+  These are assumed to be in decimal hours, decimal degrees, and
+  meters respectively.  Notation generally follows 1992 Astr Almanac, 
+  p. K11.  Return value is in units of equatorial earth radii,
+  of 6378.137 km.
+
+  The Python version takes only the two input arguments and 
+  returns [x_geo,y_geo,z_geo]
+  
+double etcorr(double jd)
+
+  Given a julian date in 1900-2100, returns the correction
+           delta t which is:
+  	TDT - UT (after 1983 and before 1994)
+  	ET - UT (before 1983)
+  	an extrapolated guess  (after 1994). 
+
+  For dates in the past (<= 1994 and after 1900) the value is linearly
+        interpolated on 5-year intervals; for dates after the present,
+        an extrapolation is used, because the true value of delta t
+  cannot be predicted precisely.  Note that TDT is essentially the
+  modern version of ephemeris time with a slightly cleaner 
+  definition.  
+
+  Where the algorithm shifts there is an approximately 0.1 second
+        discontinuity.  Also, the 5-year linear interpolation scheme can 
+        lead to errors as large as 0.5 seconds in some cases, though
+   usually rather smaller. 
+
+        double elev, double *topora, double *topodec, double *topodist)
+
+/* topocentric correction.
+        Arguments are in decimal hours, decimal degrees, and A.U.
+        elev is elevation of observatory above sea level in meters.
+        Uses ellipsoidal earth. */
+
+  This routine takes the first 7 arguments, and returns a list of the 
+  topocentric ra, dec, and distance.  Output distance, like input, is
+  in AU (the defined constant ASTRO_UNIT gives the AU in meters).
+
+void accumoon(double jd, double geolat, double lst, double elevsea,
+	double *geora, double *geodec, double *geodist,
+      double *topora, double *topodec, double *topodist)
+             
+  
+ More accurate (but more elaborate and slower) lunar 
+   ephemeris, from Jean Meeus' *Astronomical Formulae For Calculators*,
+   pub. Willman-Bell.  Includes all the terms given there.  Accuracy
+   is typically a few arcsec.
+
+ The first input parameter is the JD time argument; the remaining are
+   for the topocentric correction, they are the latitude (in decimal
+   degrees), the sidereal time (decimal hours), and the elevation
+   above sea level in meters.  A list of six values is handed back --
+   the geocentric ra and dec (decimal hours and decimal degrees), 
+   the geocentric distance in equatorial earth radii, and the 
+   same three numbers referred to the observer (topocentric).
+
+void flmoon(int n, int nph, double *jdout) 
+           
+  Gives jd (+- 2 min) of phase nph on lunation n; replaces
+  less accurate Numerical Recipes routine.  This routine 
+  implements formulae found in Jean Meeus' *Astronomical Formulae
+  for Calculators*, 2nd edition, Willman-Bell.  A very useful
+  book!! 
+
+   Paramters:
+
+   n =  integer lunation (i.e., month); J2000 occurrs when n = 1236.
+   nph = phase to be computed; 0 = new, 1 = 1st, 2 = full, 3 = last.
+
+   Returns jd of lunation.  Example:
+
+   print_all(flmoon(1236,3))
+   Wed, 1999 Dec 29, time  14 05 58.3
+
+float lun_age(double jd, int *nlun) 
+             
+   Computes age in days of moon since last new, and lunation of last 
+   new moon.  Returns as a tuple. Example:
+
+   >>> lun_age(2452222.)
+   (22.69158935546875, 1259)
+
+void print_phase(double jd)
+
+   Prints a verbal description of moon phase, given the julian date.  
+   Does not throw a newline.  Example:
+
+   >>> print_phase(2452433.)
+   3.5 days before new moon>>> 
+
+double lunskybright(double alpha,double rho,double kzen,
+		double altmoon, double alt, double moondist) 
+
+   Evaluates predicted LUNAR part of sky brightness, in 
+   V magnitudes per square arcsecond, following K. Krisciunas
+   and B. E. Schaeffer (1991) PASP 103, 1033.
+
+   alpha = separation of sun and moon as seen from earth,
+   converted internally to its supplement,
+   rho = separation of moon and object,
+   kzen = zenith extinction coefficient, 
+   altmoon = altitude of moon above horizon,
+   alt = altitude of object above horizon 
+   moondist = distance to moon, in earth radii
+
+   all angles are in decimal degrees. */
+
+void accusun(double jd,double lst,double geolat,
+		double *ra, double *dec, double *dist, double *topora,
+		double *topodec, double *x, double *y, double *z)  
+
+
+   Implementation of Jean Meeus' more accurate solar
+    ephemeris.  For ultimate use in helio correction! From
+    Astronomical Formulae for Calculators, pp. 79 ff.  This
+    gives sun's position wrt *mean* equinox of date, not
+    *apparent*.  Accuracy is << 1 arcmin.  Both geocentric
+    and topocentric positions are given.
+    Light travel time is apparently taken into
+    account for the ra and dec, but I don't know if aberration is
+    and I don't know if distance is simlarly antedated. 
+
+    Only the jd, lst, and geographic latitude are input.  The
+    lst and latitude are used for the topocentric correction.
+    All distances are in AU for this one.  RA and dec are as
+    usual in decimal hours and decimal degrees.
+
+    x, y, and z are heliocentric equatorial coordinates of the
+    EARTH, referred to mean equator and equinox of date.  These
+    are dandy for a heliocentric correction (but a barycentric
+    correction to this is available below).
+
+double jd_moon_alt(double alt,double jdguess,double lat,
+		double longit, double elevsea)
+                  
+   Returns jd at which moon is at a given altitude, above the 
+   horizon, given jdguess as a starting point.  Solution is iterative,
+   designed for finding times of moonrise, etc.  In current version
+   uses high-precision moon -- execution time does not seem to be
+   excessive on modern hardware.  If it's a problem on your machine,
+   you can replace calls to 'accumoon' with 'lpmoon' and remove
+   the 'elevsea' argument. 
+
+   A typical use of this would be to compute the approximate time of 
+   moonrise or whatever by computing the rising time of some fixed
+   position near where the moon is, then using the result as the 
+   jdguess input for this routine, which does the iteration and 
+   delivers a more exact value.
+  
+   Non-convergence is possible.
+
+double jd_sun_alt(double alt, double jdguess, double lat, double longit)
+                 
+   Returns jd at which sun is at a given altitude above the horizon, 
+   given jdguess as a starting point. Uses low-precision sun, which 
+   is plenty good enough.  Analagous to jd_moon_alt, above.
+
+   Non-convergence is possible.
+
+float ztwilight(double alt) 
+
+ Evaluates a polynomial expansion for the approximate brightening
+   in magnitudes of the zenith in twilight compared to its 
+   moonless night value, as function of altitude of the sun (in degrees).
+   To get this expression I looked in Meinel, A.,
+   & Meinel, M., "Sunsets, Twilight, & Evening Skies", Cambridge U.
+   Press, 1983; there's a graph on p. 38 showing the decline of 
+   zenith twilight.  I read points off this graph and fit them with a
+   polynomial.  Comparison with Ashburn, E. V. 1952, JGR, v.57, p.85 
+   shows that this is a good fit to his B-band measurements.  
+   This is a good rough guide but is unlikely to be very accurate.
+
+find_dst_bounds(int yr, double stdz, int use_dst,
+			double *jdb, double *jde) 
+
+  Finds jd's at which daylight savings time begins and ends for a given
+  year.  The parameter use_dst allows for a number of conventions, namely:
+	0 = don't use it at all (standard time all the time)
+	1 = use USA convention (1st Sun in April to
+	    last Sun in Oct after 1986; last Sun in April before)
+	2 = use Spanish convention (for Canary Islands)
+	-1 = use Chilean convention (CTIO).
+	-2 = Australian convention (for AAT).
+  Negative numbers denote sites in the southern hemisphere,
+  where jdb and jde are beginning and end of STANDARD time for
+  the year.   
+
+  Python version takes two arguments and returns a tuple, for example:
+
+    >>> find_dst_bounds(2004,5,1)
+    (2453099.791666667, 2453309.75)
+
+  It's assumed that the time changes at 2AM local time; so
+   when clock is set ahead, time jumps suddenly from 2 to 3,
+   and when time is set back, the hour from 1 to 2 AM local 
+   time is repeated.  This could be changed in code if need be. 
+
+double zone(int use_dst,double stdz,double jd,double jdb,double jde) 
+           
+  Returns zone time offset when standard time zone is stdz,
+   when daylight time begins (for the year) on jdb, and ends
+   (for the year) on jde.  Specifying a negative value of use_dst 
+   reverses the logic for the Southern hemisphere; then DST is assumed for
+   the Southern hemisphere summer (which is the end and beginning
+   of the year. 
+
+double true_jd(struct date_time date, int use_dst, int enter_ut, 
+		int night_date, double stdz) 
+       
+ Takes the values in the date-time structure, the standard time
+  zone (in hours west), the prevailing conventions for date and
+  time entry, and returns the value of the true julian date. 
+
+ "enter_ut" is a flag which specifies that the date and time in the 
+  date_time structure is expressed in UT already, in which case
+  stdz (the standard time zone offset) and use_dst (the daylight
+  savings time convention) are irrelevant.
+
+ "night_date" is a flag which says that if the time is before
+  noon, the date is to be interpreted as the previous evening.
+  This maintains continuity of the date through the night, but
+  it's a little confusing at first.
+
+void print_tz(double jd,int use,double jdb,double jde,char zabr) 
+             
+  prints correct time abbreviation (e.g., "MST") given zabr as the
+   single character abbreviation for the time zone,
+   "D" or "S" depending on daylight or standard (dst 
+    begins at jdb, ends at jde) and current jd. 
+    
+void xyz_cel(double x,double y,double z,double *ra,double *dec) 
+
+  Converts a Cartesian coordinate triplet into a right ascension and 
+  declination (decimal hours and decimal degrees).  The X axis points
+  toward RA = 0, dec = 0, the Y axis toward RA = 6h, dec = 0., and 
+  the Z axis points toward toward the north celestial pole.
+
+  Pythonized version takes the x, y, z values as input and returns
+  a tuple with the ra and dec.
+
+void aberrate(double epoch, double *vec, int from_std) 
+ 
+  epoch is in decimal years 
+  vec[] is a celestial unit vector 
+        /* int from_std;  1 = apply aberration, -1 = take aberration out. */
+
+  The pythonized version of this routine runs, but may not give correct
+  answers.  Spot tests suggest not.
+
+void nutation_params(double date_epoch, double *del_psi, double *del_ep) 
+
+ computes the nutation parameters delta psi and
+   delta epsilon at julian epoch (in years) using approximate
+   formulae given by Jean Meeus, Astronomical Formulae for
+   Calculators, Willman-Bell, 1985, pp. 69-70. Accuracy
+   appears to be a few hundredths of an arcsec or better
+   and numerics have been checked against his example. 
+   Nutation parameters are returned in radians. 
+
+ Pythonized version takes one argument, and returns nutation parameters
+  in a tuple.
+
+void cooxform(double rin, double din, double std_epoch, 
+  double date_epoch, double *rout, double *dout, int just_precess, 
+  int do_aber, int from_std)
+
+ The master precession routine.  Input ra and dec are rin and din,
+ in decimal hours and decimal degrees.  std_epoch and date_epoch
+ are the epochs of "standard" coordinates and "coordinates of date",
+ e.g., 2000 and 2004.1234.   rout and dout are the outputs.
+
+ Note carefully that the direction of the precession is set by 
+ "from_std".   If this is 1, the input coords are assumed to be
+ standard coords and the output coords are the coordinates of date.
+ If this is XFORM_TOSTDEP = -1, the input coordinates are 
+ transformed back to the standard epoch.  If this is XFORM_FROMSTD = 1,
+ the input coordinates are transformed from the standard epoch to
+ the date epoch.  
+
+ The flags "just_precess" and "do_aber" control whether the apparent
+ place (including nutation and aberration) is to be computed.  Coordinates
+ are almost always quoted as "mean" coordinates of date, which ignore
+ these small corrections, so most users will want just_precess = 1 and
+ do_aber = 0.  Diurnal aberration, parallax, proper motion, and
+ GR deflection of light are ignored.
+  
+    Precession uses a matrix procedures
+      as outlined in Taff's Computational Spherical Astronomy book.
+      This is the so-called 'rigorous' method which should give very
+      accurate answers all over the sky over an interval of several
+      centuries.  Naked eye accuracy holds to ancient times, too. 
+      Precession constants used are IAU1976 -- the 'J2000'
+      system. 
+ 
+      Nutation is incorporated into matrix formalism by constructing an 
+      approximate nutation matrix and taking a matrix product with 
+      precession matrix.  
+
+      Aberration is done by adding the vector velocity of the earth to 
+      the velocity of the light ray .... not kosher relativistically,
+      but empirically correct to a high order for the angle.  
+
+
+double near_hor_refr(double app_alt, double pressure) 
+
+	 Almanac 1992, p. B62 -- ignores temperature variation 
+	 formula for near horizon, function-ized for iteration ... 
+
+double refract_size(double alt, double elev) 
+
+	alt is how far source is above horizon in degrees;
+	elev is site elevation in meters.  Ignores variation in temperature
+        and just assumes an isothermal atmosphere at T = 20 celsius.  
+        Not terribly precise but close.
+	
+void refract_corr(double *ha , double *dec, double lat, double elev, 
+		double *size, int sense)
+	
+ This routine has not been python-ized yet.  It's used internally 
+ in print_apparent (below).
+
+ If sense == 1 , applies refraction to a true ha and dec; if
+   == -1, de-corrects already refracted coordinates. Uses elevation of
+   observatory above sea level to estimate a mean atmospheric pressure. 
+
+void mass_precess() 
+
+ This routine simply offers a precession calculator at the command line.
+ Works straightforwardly in python.
+  
+void print_apparent(double rain,double decin,double epochin,
+		double mura_sec, double mudec, double jd,
+		double lat, double longit, double elev) 
+
+ Given all these arguments, prints a detailed account of a full apparent
+ place calculation, staring with precession, proper motion, nutation and
+ aberration, and finally atmospheric refraction.  mura_secs needs to be
+ the rate of increase of the actual ra of the star, in seconds of time 
+ per year.
+
+void galact(double ra, double dec, double epoch, 
+		double *glong, double *glat)
+           
+ Homebrew algorithm for 3-d Euler rotation into galactic. 
+   Perfectly rigorous, and with reasonably accurate input 
+   numbers derived from original IAU definition of galactic
+   pole (12 49, +27.4, 1950) and zero of long (at PA 123 deg
+   from pole.)  Precesses input ra and dec to 1950 before applying
+   the rotation.
+
+ In python, takes ra, dec, and epoch as input, and returns
+  galactic longitude and latitude in a tuple.
+
+void gal2radec(double glong, double glat, double epoch,
+		double *ra, double *dec) 
+
+Inverts the above - output coordinates are in the epoch 
+   given by "epoch".
+
+void eclipt(double ra,double dec,double epoch,double jd,
+		double *curep, double *eclong, double *eclat)
+
+ ra in decimal hrs, other coords in dec. deg.
+
+ converts ra and dec, referred to equinox "epoch", to ecliptic 
+  coords -- precesses to equinox of "jd" first (and hands that
+  epoch back for printing.)  
+
+ The slow change of the obliquity of the ecliptic is taken into 
+ account.
+
+ Pythonized version takes four arguments and hands back the
+  urrent epoch, ecliptic longitude, and ecliptic latitude in a tuple.
+
+PLANETARY ROUTINES
+
+   This is not a high-precision set of planetary routines -- it's 
+   nowhere close!!  The intention of this is
+   to compute low-precision planetary positions for general info
+   and to inform user if observation might be interfered with by
+   a planet -- a rarity, but it happens.  Also designed to make
+   handy low-precision planet positions available for casual
+   planning purposes.  Do not try to point blindly right at the
+   middle of a planetary disk with these routines!  
+
+void comp_el(double jd) 
+
+   ** This routine must be called before any planetary calculations get
+   done.**  It computes the elements of the planetary orbits at
+   a particular instant; these are all globally defined, so they're
+   hidden.  Comp-el must be repeated for each new time argument jd.
+
+void planetxyz(int p, double jd, double *x, double *y, double *z)
+             
+  produces ecliptic x,y,z coordinates for planet number 'p'
+   at date jd.  Result is handed back as a tuple.  "comp_el" must
+   be called first.  For example, to compute the ecliptic xyz location
+   of Venus at JD 2452222.:
+
+   >>> comp_el(2452422.)
+   >>> planetxyz(2,2452422.)
+    (-0.60349011489168314, 0.38805246998466747, 0.040132302449841402)
+
+		
+void planetvel(int p, double jd, double *vx, double *vy, double *vz)
+
+Numerically evaluates planet velocity by brute-force
+numerical differentiation. Very unsophisticated algorithm. Answer is
+in AU/day.  comp_el(jd) must be called first.  Two arguments are 
+the planet (1 = Mercury, etc.) and the jd, result is returned as 
+a tuple.
+
+void xyz2000(double jd, double x, double y, double z) 
+
+ simply transforms a vector x, y, and z to 2000 coordinates
+   and prints -- for use in diagnostics. 
+
+void xyz2000xf(double jd, double *x, double *y, double *z) 
+
+ This is not pythonized properly.
+
+ If it were it would be the same, as xyz2000, but without the 
+ printing.  Simply transforms a vector x, y, and z to 2000 
+ coordinates.  For diagnostics mostly.
+
+void earthview(double *x, double *y, double *z, int i, 
+		double *ra, double *dec) 
+	
+ Given computed planet positions for planets 1-10, computes
+   ra and dec of i-th planet as viewed from earth (3rd).
+ This should be runnable from python with a lot of bother, 
+  but it mostly exists to be run from within pposns, which 
+  is wrapped properly (see below). 
+
+void pposns(double jd, double lat, double sid,
+		int print_option, double *planra, double *plandec) 
+
+ Computes and optionally prints positions for all the planets. 
+  print_option 1 = print positions, 0 = silent 
+
+ Positions are ra and dec referred to mean equinox of date.
+
+ Note that comp_el needs to be run before this routine.
+
+ planra and plandec are arrays of pointers to doubles.  To
+ use this from within python, these need to be allocated
+ with ptrcreate (see remarks on the python wrap early in 
+ this document).
+
+void barycor(double jd, double *x, double *y, double *z,
+		double *xdot, double *ydot, double *zdot)
+
+ This routine takes the position
+   x,y,z and velocity xdot,ydot,zdot, assumed heliocentric,
+   and corrects them to the solar system barycenter taking into
+   account the nine major planets.  Routine evolved by inserting
+   planetary data (given above) into an earlier, very crude
+   barycentric correction.  
+
+ The pythonic implementation hasn't been tested extensively --
+  it appears to require all six of the pointer arguments to
+  be handed in explicitly loaded up with values, but then
+  returns the result as a tuple.  Use with caution.  What you
+  probably want is the higher-level routine "helcor", below,
+  which calls barycor to tweak the heliocentric correction.
+
+void helcor(double jd,double ra, double dec, double ha,
+		double lat, double elevsea, double *tcor, double *vcor)
+
+ finds "heliocentric" correction for given jd, ra, dec, ha, and lat.
+   tcor is time correction in seconds, vcor velocity in km/s, to 
+   be added to the observed values.  
+   Input ra and dec assumed to be at current epoch.
+
+ The actual values are referred to the solar system barycenter, not 
+  the center of the sun.  This is more correct.  The same solar
+  system model used for pposns is used to find the offset between
+  the heliocenter and the barycenter.  The diurnal velocity correction
+  is applied (up to 400 m/s), but the light travel time across the
+  earth is ignored.  Final accuracy should be around 0.1 s of time
+  and a few m/s in velocity -- not good enough for pulsar timing
+  of planet seeking, but good enough for everything else.
+
+ECLIPSE PREDICTION ROUTINES
+
+float overlap(double r1, double r2, double sepn)
+
+ Pure geometry.  For two circles of radii r1 and r2,
+   computes the overlap area in terms of the area of r1
+   if their centers are separated by sepn. 
+
+void solecl(double sun_moon,double distmoon,double distsun) 
+
+ For a given angle between sun and moon in degrees, and distances 
+   to both, in terms of AU and earth radii respectively, prints out 
+   fraction of sun covered, etc; examples:
+
+ >>> solecl(0.1,60.,1.)
+  PARTIAL ECLIPSE OF THE SUN, 0.74 covered.
+
+ >>> solecl(0.0,60.,1.)
+  ANNULAR ECLIPSE OF THE SUN, 0.95 covered.
+ 
+ >>> solecl(0.0,55.,1.)
+  TOTAL ECLIPSE OF THE SUN!
+
+ >>> solecl(1.5,55.,1.)
+ >>> 
+
+ Note that the routine is silent if there is no eclipse.
+
+int lunecl(double georamoon,double geodecmoon,double geodistmoon,
+		double rasun,double decsun,double distsun)
+
+ Quickie lunar eclipse descriptor -- makes a number of 
+   minor assumptions, e. g. small angle approximations, plus
+   projects phenomena onto a plane at distance = geocentric 
+   distance of moon.  Note that GEOCENTRIC lunar coords are
+   expected.
+
+   Return values:   0 = no eclipse
+                    1 = Partial penumbral (bright) eclipse
+                    2 = Total  penumbral (bright) eclipse
+                    3 = Partial umbral (dark) eclipse
+                    4 = Total eclipse.
+ 
+void planet_alert(double jd, double ra, double dec, double tolerance)
+		 
+ Given a jd, ra, and dec, this computes rough positions
+   for all the planets, and alerts the user if any of them
+   are within less than a settable tolerance of the ra and dec. 
+   Self-contained, does not require a call to comp_el.
+
+ Example:
+
+   >>> planet_alert(2452729.501898,8.7,19.1,1.)
+   -- CAUTION -- proximity to Jupiter -- low-precision calculation shows
+    this direction as  0.25 deg away from Jupiter ---
+
+HIGH-LEVEL OUTPUT ROUTINES
+
+int setup_time_place(struct date_time date, double longit, double lat,
+	double stdz, int use_dst, char *zone_name,
+	char zabr, char *site_name, int enter_ut, int night_date,
+	double *jdut, double *jdlocal, double *jdb, double *jde,
+	double *sid, double *curepoch)
+
+ The pythonized routine hasn't been tested.  The underlying C is a 
+  high-level element of "classic skycalc".  It doesn't return pointer-
+  ized character strings, so there's some hope that it's successfully
+  wrapped.
+
+ This takes the date (which contains the time), and the site parameters,
+   and prints out a banner giving the various dates and times; also
+   computes and returns various jd's, the sidereal time, and the epoch. 
+   Returns negative number to signal error if date is out of range of
+   validity of algorithms, or if you specify a bad time during daylight-time
+   change; returns zero if successful.  
+
+
+void print_tonight(struct date_time date, double lat, double longit,
+	double elevsea, double elev, double horiz, char *site_name,
+	double stdz, char *zone_name, char zabr, int use_dst,
+	double *jdb, double *jde, int short_long)
+
+ This takes a date and everything else, and prints a description of the
+  night's events - sunset, sunrise, moonrise, moonset, moon phase, 
+  times of twilight, and so on.  
+
+ short_long is a fossil argument which allows a slightly shorter version 
+  to be printed. 
+
+
+void print_circumstances(double objra,double objdec,double objepoch,
+	double jd, double curep, double mura_arcs, double mura_sec,
+	double mudec, double sid, double lat, double elevsea, double horiz)
+
+  Prints the instantaneous circumstances for an object at objra, objdec,
+   objepoch.  A great deal of information is computed and summarized for
+   the user.  
+
+  The instant for which the info is computed is given by jd.  Curep is 
+   the Julian epoch of that instant -- it's a wart that this isn't 
+   computed internally.
+
+  The object can have a proper motion given by a nonzero value of either
+   mura_arcs or mura_sec -- there are two conventions for right ascension --
+   and mudec.  mura_arcs is the eastward proper motion in arcsec/yr at 
+   the point on the sky, mura_sec is the rate of change of right ascension
+   in seconds of time per year.  mudec is the declination proper motion 
+   in arcsec/yr.  
+
+  sid is the sidereal time; elevsea is the elevation above sea level 
+   (needed for topo corrections), and horiz is the elevation of the site
+   above the terrain which forms its horizon (needed for judging if the 
+   moon or sun is up).
+
+
+void hourly_airmass(struct date_time date, double stdz, double lat,
+  double longit, double horiz,int use_dst, double objra, double objdec,
+   double objepoch,  double mura_sec, double mura_arcs, double mudec,
+   char *obj_name)
+
+ Given a slew of information, prints a table of hourly airmass, etc.
+   for use in scheduling observations.  Also prints sun and moon
+   altitude when these are relevant.  Precesses coordinates as well. 
+
+   date - date of observations (evening)
+   stdz - standard time zone offset in hrs W
+   lat  - site latitude in decimal degr
+   longit - site WEST longitude in decimal HOURS
+   horiz - elevation of observatory above terrain forming its horizon
+   use_dst - code for DST convention in use
+   objra - RA of object
+   objdec - dec of object
+   objepoch - epoch and equinox of object's coordinates
+   mura_sec, mura_arcs - RA annual proper motion, in sec of time at 
+      equator or arcseconds at object
+   mudec - dec proper motion in arcsec/yr
+   objname - object name for labeling output.
+   
+
+void print_params(struct date_time date, int enter_ut, int night_date,
+    double stdz, double lat, double longit, char *site_name,
+    double elevsea, double elev, int use_dst, double objra, double objdec,
+    double objepoch, double mura_sec, double mura_arcs, double mudec)
+
+  There's no reason the pythonized version of this shouldn't work but
+   for most script-type applications it's unnecessary.
+
+  This simply prints a nicely formatted list of the *input* parameters
+   without doing any computations.  Helpful for the perplexed user, and
+   for checking things. 
+
+
+void print_menu() 
+
+  Prints a menu of commands for classic skycalc.  Obsolete unless you want
+  to reimplement classic skycalc in python, which I don't recommend.
+
+void print_tutorial()
+
+  Prints a little tutorial for classic skycalc.  Obsolete.
+
+void print_accuracy() 
+	
+  Prints some remarks on how accurate the program is likely to be.
+  Obsolete.
+
+void ephemgen(double ra, double dec, double ep, double lat, double longit)
+
+ Prompts for elements of an ephemeris, then generates a printout of 
+  the *geocentric* ephemeris of an object, e.g., a table of times of
+  eclipses, together with hour angle, airmass, etc.  Can filter for
+  only those events visible from the given latitude and longitude.
+  This is a rather primitive version of this routine, which has
+  been superseded by a better one in classic skycalc.
+
+double hrs_up(double jdup, double jddown, double jdeve, double jdmorn) 
+
+  If an object comes up past a given point at jdup,
+   and goes down at jddown, and evening and morning
+   are at jdeve and jdmorn, computes how long
+   object is up *and* it's dark.  ... Written as
+   function 'cause it's used later.  Should be little reason to call
+   this from python.
+
+void print_air(double secz, int prec) 
+ 
+ Utility routine to print secant z, or "v.low" or "down" if the 
+  airmass is large.  Routinized to ensure that the printout takes
+  a consistent number of spaces, even if secant z is large.
+
+void print_ha_air(double ha,double secz,int prec1,int prec2) 
+ 
+ Utility routine to print the hour angle and the airmass, to adjustable
+  precision in a consistent number of spaces.
+
+void obs_season(double ra, double dec, double epoch, double lat, double longit)
+
+ Prints a table of observability through an observing
+   season.  The idea is to help the observer come up
+   with an accurately computed "range of acceptable
+   dates", to quote NOAO proposal forms.  The user is prompted for
+   first and last dates to print, and then for each new and full moon
+   between these dates, the object's hour angle and airmass is 
+   tabulated for morning twilight, the center of the night, and
+   evening twilight.  Also, the number of nighttime hours at 
+   airmass less than 3, 2, and 1.5 is printed.
+
+int get_sys_date(struct date_time *date, int use_dst, 
+	int enter_ut, int night_date, double stdz, double toffset) 
+
+ Reads the system clock; loads up the date structure
+  to conform to the prevailing conventions for the interpretation
+  of times.  Optionally adds "toffset" minutes to the system
+  clock, as in x minutes in the future.  Returns 0 if it
+  thinks it's succesful.  Arguments are:
+
+   date - the date-time structure.  You must make one of these
+    ahead of time in the calling program.
+   use_dst - code for dst convention in use.  1 = standard US, 
+    0 = don't use it, etc.
+   enter_ut - causes ut to be returned instead of local time.
+   night_date - makes evening date be in effect all night long,
+     e.g. 1 AM on the 31st would be returned as 1 AM on the 30th.
+   stdz - the time zone, e.g. +5 for Eastern
+   toffset - adds this many minutes to the result.
+
+void indexx(int n, float *arrin, int *indx)
+
+ Sort routine, uses an original coding of heapsort to avoid copyright
+  issues.  Because Python provides built-in sort methods this is
+  unlikely to be of any use, but it is used internally in list processing.
+
+
+OBJECT LIST SELECTION AND MANIPULATION
+
+
+int read_obj_list() 
+
+ Reads a list of objects from a file.  Here's the rules:
+     -- each line of file  must be formatted as follows:
+
+name   rahr ramn rasec   decdeg decmin decsec   epoch   [optional number]
+
+    -- the name cannot have any spaces in it.
+    -- if the declination is negative, the first character of the
+	 declination degrees must be a minus sign, and there can
+	 be no blank space after the minus sign (e. g., -0 18 22 is ok;
+	 - 12 13 14 is NOT ok).
+    -- other than that, it doesn't matter how you space the lines. 
+
+    I chose this format because it's the standard format for 
+    pointing files at my home institution.  If you'd like to code
+    another format, please be my guest!  
+
+
+int find_by_name(double *ra, double *dec, double epoch, struct date_time date, 
+		int use_dst, int enter_ut, int night_date, double stdz,
+		double lat, double longit)      	
+				 
+   Queries user for the name of an object.
+   Finds object by name in list, and sets ra and dec to
+   those coords if found.  Precesses to current value of
+   epoch.  ra and dec have to be made first by ptrcreate, then 
+   queried by ptrvalue; they actually are used C-style to hand the
+   values out of the routine. 
+ 
+   The other parameters are on there so that the user can be reminded
+   of the observational parameters of the object (hour angle etc.0
+
+void type_list(struct date_time date, int use_dst, int enter_ut, 
+	int night_date, double stdz, double lat, double longit)      	
+
+   Prompts the user and types out a portion of the object list.
+    The elaborate arguments are used to print out observational
+    circumstances for each listed object.
+
+
+int find_nearest(double *ra, double *dec, double epoch, 
+	struct date_time date, int use_dst, int enter_ut, int night_date, 
+	double stdz, double lat, double longit)     
+    
+  Elaborate routine to select an object from the list, after sorting it
+   by one of a number of criteria (e.g., distance from current RA and
+   dec).  
+
+  In pythonic version, the first two arguments are just ordinary 
+   numbers, and the ra and dec of the selected object are handed
+   back as a tuple.  Zeroth element of tuple is return value; 
+   1 = success, an object is selected, -1 = object is not selected.
+		
+
+void set_zenith(struct date_time date, int use_dst, int enter_ut, 
+	int night_date, double stdz, double lat, 
+	  double longit, double epoch, double *ra, double *dec) 
+	       
+ Computes RA and dec of zenith as defined by present time and date,
+  interpreted according to whichever conventions;
+  coords are set to actual zenith referred to equinox of "epoch". 
+
+
+void printephase(struct date_time date, int use_dst, int enter_ut, 
+	int night_date, double stdz, double lat, double longit, 
+	double epoch, double ra, double dec) 
+
+prints phase of a repeating phenomenon at this instant.  Refers
+to global variables star_tzero, star_terr, star-period, and 
+star_perr.
+
+int set_to_jd(struct date_time *date, int use_dst, int enter_ut, int night_date,
+	double stdz, double jd) 
+
+	 Takes a jd and loads up the date structure
+	   to conform to the prevailing conventions for the interpretation
+	   of times. 
+
+void parellipse(double jd, double ra, double dec, double epoch, double lat, 
+		double longit, double *dra, 
+		double *ddec, double *aberra, double *aberdec)
+
+   Computes the normalized annual parallax shift at a given jd for 
+   a star at ra (decimal hours) and dec (decimal degrees) (coords are for
+   epoch).  Shifts are expressed as arcseconds in the ra direction and
+   arcseconds in the dec direction; note that the dra is the actual 
+   change of ra times cosine delta.  Uses skycalc routines to do a 
+   vastly better job than needed.  Approximations break down within a 
+   very small arc of the pole. 
+
+   Observatory latitude and WEST longitude are lat (deg) and longit
+    (hours).
+
+   Also returned is the aberration in the ra and dec directions.
+
+   Answers returned are on the equinox J2000.
+

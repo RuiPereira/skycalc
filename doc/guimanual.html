@@ -1,0 +1,701 @@
+<html>
+
+<head>
+<title> Skycalc GUI Manual </title>
+</head>
+<BODY bgcolor="#d0e0f0">
+
+<table align="center" border="0"><tr><td>
+<b><font size="+2">A short guide to <i>skycalcgui</i> and <i>skycalcdisp.py</i></b></font></td></table><!--hboxt-->
+
+<center>
+<h1><img src="tinywindow.png"></h1>
+</center>
+<p>
+<br />
+<table align="center" border="0"><tr><td><font size="+1">
+John Thorstensen, Department of Physics and Astronomy, Dartmouth College</font></td></table><!--hboxt-->
+
+<a name="contents">Contents:</a><p>
+
+<ul>
+<li><a href = "#general">General</a>
+<li><a href = "#technical">A few technicalities ...</a>
+<li><a href = "#main">The Main Window</a>
+<li><a href = "#hourly">The Hourly Airmass Window</a>
+<li><a href = "#site">Site Parameters</a>
+<li><a href = "#objects">Object Lists</a>
+<li><a href = "#textwindow">The Text Tables Window</a>
+<li><a href = "#nightly">The Nightly Almanac</a>
+<li><a href = "#altcoo">Alternate Coordinates</a>
+<li><a href = "#planets">The Planets</a>
+<li><a href = "#display">The Planetarium Display</a>
+<li><a href = "#scenarios">Putting it to Work ...</a>
+
+
+<font size="+1">
+<p>
+<a name="general"><b>General</b></a>
+<p>
+The programs <i>skycalcgui.py</i> and <i>skycalcdisp.py</i> perform
+"time-and-the-sky" calculations of interest to astronomers carrying
+out nighttime observations.
+Both versions use graphical user interfaces (GUIs), which gives them
+a look-and-feel similar to web forms.  They are based on the
+venerable <i>skycalc</i> program, which has a text-based interface.
+(The software distribution also contains the most recent version of the 
+text-based program; installation of this is optional).
+<p>
+The <i>gui</i> and <i>disp</i> versions differ only in that 
+the latter has a "planetarium display" option which
+plots a map of the visible sky.  This can be enormously helpful.  
+but is more difficult to install because its software dependencies.
+<p> 
+While the graphical user interface should make the program
+fairly intuitive, this guide may point out some less obvious
+features.  It may also be useful for those who are deciding 
+whether or not to install it.
+<p>
+<a name="technical"><b>Some technical details:</b></a>
+<p>
+</font>  
+The GUI is written in Python and uses Python's Tkinter module.  
+You can see if these are available on your system by typing
+<pre>
+	python
+	from Tkinter import *
+</pre>
+... if there aren't any error messages, you should be fine.
+<p>
+If they don't come up, you might try installing the STScI-Python
+bundle from the 
+<a href="http://www.stsci.edu/resources/software_hardware/pyraf">Pyraf</a>,
+website.  
+Once you have Pyraf running, the rest is easy (except for
+the ppgplot stuff described below, which is separate).  While you're
+at it, grab numarray (see below).  Nearly all IRAF users will
+find Pyraf to be very useful, especially its scripting capabilities.
+It will change your life!
+<p>
+The planetarium display in <i>skycalcdisp.py</i> is built on 
+Tim Pearson's 
+<a href="http://www.astro.caltech.edu/~tjp/pgplot/">PGPLOT</a> 
+graphics subroutine library, and also on a Python wrapper for 
+PGPLOT written by Nick Patavalis, which is called 
+<a href="http://efault.net/npat/hacks/ppgplot/">ppgplot</a>. 
+The ppgplot wrapper requires that all array arguments be 
+the special "array" type used by the
+<a href="http://www.stsci.edu/resources/software_hardware/numarray">
+numarray</a> package.  This package is
+available from Space Telescope Science Institute.  Note that 
+ppgplot can also be built to use Numeric (the precursor to 
+numarray), but the two versions are mutually incompatible.  The
+ppgplot and numarray 
+packages are useful for <i>many</i> purposes beyond skycalcdisp,
+so they may be worth installing in any case.  Again, note that
+numarray can easily be installed as part of 
+<a href="http://www.stsci.edu/resources/software_hardware/pyraf">Pyraf</a>.
+<p>
+There is an older, text-based version called <i>skycalc</i> which
+offers similar functionality to the GUI-based programs.
+It is easy to use and simpler to install, since it requires only 
+the C compiler and standard libraries to build.
+Although <i>skycalc</i> is easy to learn,
+the GUI will be more intuitive to most users.
+<p>
+See the README file in the source directory for instructions as
+to how to install these programs.  A makefile is provided for
+the text-based versions, and a setup.py for the python-based
+versions.  These should greatly simplify the task of installation.
+<p>
+One note on the display version -- if the planetarium display fails
+with a runtime error about something being "not an array",
+this is a symptom that <i>ppgplot</i> is not configured for 
+the right numerical python version.
+If you have <i>Numeric</i> installed, try changing the line
+early in the source code which reads "from numarray import *"
+to "from Numeric import *".  This may fix it.
+<center>
+<font size="+1">
+<a name="main"><b> The main window </b></a>
+<p>
+<h1><img src="mainwindow4.png" align="center"></h1>
+</center>
+This is the <b>main control window</b> for the GUI.  Basically, you enter
+input variables in the upper left and choose a site from the site
+menu (<a href="#site">see below</a> if your site isn't on the menu).  
+Then, whenever 
+the output refreshes, a large number of observing circumstances are 
+computed and displayed.  Notations around the figure point out some 
+possibly non-obvious features. 
+<p>
+To make the computations go, 
+<ul>
+<li> Hit a left- or right- arrow key in the main window to step time
+backward or forward by the amount given by "timestep"
+<li> Type a carriage return anywhere in the main window.  Typing a 
+carriage return in the "timestep" entry field also steps the time.
+<li> Press any of the following: "Refresh output", "Step time", 
+"Set to Now", or "UT - local".
+<li> Select a new site from the site menu.
+<li> Select a new object from the (optional) object list.
+</ul>
+<p>
+For more information, look through the help text or reference manual,
+which pop up if you push their buttons.
+If you have questions about the details of the calculations or
+their expected accuracy, 
+refer to the extensive manual for the (text-based) <i>skycalc</i> program.
+The underlying C-language functions used in <i>skycalc</i> are 
+largely the same as for 
+the GUI versions.  The "doc" directory of the present distribution
+contains versions of the <i>skycalc</i> manual in several different formats.
+<p>
+Most of the <b>buttons</b> in the panel at the bottom of the window spawn
+subwindows.  For some (but not all) of these, clicking on their buttons
+in the main window will put them in the foreground if they have been
+buried by other windows.  The Planetarium, Text Tables,  and 
+Object List windows are exceptions to this rule - the planetarium's
+button toggles it on and off; the Text Tables and Get object list
+buttons spawn new instances of the windows.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<p>
+<center>
+<font size="+1">
+<a name="hourly"><b> The Hourly Airmass window </b></a>
+<p>
+<h1><img src="hawindow.png" align="center"></h1>
+</center>
+<p>
+
+The <b>Hourly Airmass</b> window tends to be heavily used.
+It provides an hour-by-hour report of the most important 
+circumstances through the night.  The circumstances are
+computed for the celestial location,
+geographic site, and date set in the main window.
+If the input time in the main window is 
+before local noon, the previous night is presented (so if it's
+past midnight you still get the current night); if the time
+is after noon, the data are for that night.
+<p>
+The first columns give the time in three forms:
+local clock time (daylight savings if it is in effect), UT, 
+and sidereal.
+Then come the hour angle, airmass, and the altitudes of the moon
+(if above the horizon) and the sun (if it is higher than 
+18 degrees below the horizon).  The display typically goes from
+a little before sunset to a little after sunrise, though this
+can vary somewhat.  There are enough lines to cover the longest
+nights adequately for latitudes less than about 50 degrees.
+<p>
+<b><font size="+2" color = "#ff0000">Co</font><font size="+2" color="#ff00ff">lo</font><font size="+2" color="#9411e0">rs</font></b> 
+are used to warn the user 
+of potentially difficult conditions, as follows:
+
+<ul>
+<li> The Hour Angle field turns orange when the hour angle exceeds
+6 hours.
+<li> The airmass field turns yellow when the airmass is &gt; 
+2, orange at &gt; 3, and red at &gt; 4.
+<li> The moonalt field (altitude of the moon above the horizon in
+degrees) turns blue when the predicted lunar contribution to the
+sky brightness 'lunsky' exceeds 21.5 mag per square arcsec in V.  
+At a dark site this more-or-less
+doubles the sky brightness above the moonless value.  At 19.5 mag 
+per square arcsec the field turns 
+a lilac-purple color.  
+<li> When the object is close to the moon,
+another color scheme is used.  At &lt; 10 degrees from 
+the moon, the field is always colored red.  When the object is 
+between 10 and 25 degrees from the moon, the field is rendered
+in yellow, orange, or red, depending on the sky brightness, at the
+same 'cut points' used for blue and lilac warnings.  You can 
+check out doubtful cases in detail in the main window, by setting 
+the time and noting the "lunsky" and "moon-obj ang."
+output variables.
+<li> The sunalt field is light blue when the sun is up.  During twilight,
+a red-orange-yellow system is used, based on how many magnitudes of
+twilight there are.  This figure is the predicted clear-sky enhancement
+above dark night sky, in the zenith, measured in the blue, and 
+given in magnitudes; thus 5.0 magnitudes of twilight means the
+sky in the zenith is predicted to be 100 times brighter than a "dark" sky.
+When this figure exceeds 8 mag, the field is red; at 4 to 8 magnitudes, 
+it is orange; and at &lt; 4 mag, it is yellow.  When there is 
+no twilight, the field reverts to grey.  Obviously, the actual
+sky brightness depends in a complicated way on atmospheric 
+conditions.
+
+</ul>
+<a href="#contents">[Back to contents.]</a><p>
+<p>
+<center>
+<font size="+1">
+<b> The Site Selection Menu </b>
+<p>
+<a name="site"><h1><img src="sitewindow.png" align="center"></h1></a>
+</center>
+<p>
+Pushing one of the <b>site</b> buttons loads the parameters for the
+listed site and refreshes the calculations. 
+<p>
+<b>If your site is not on the menu</b>, you'll have to enter the 
+parameters one-by-one in the main window. <font color="#ff0000"> 
+<b>BUT NOTE:</b> </font> before you do
+this, you need to select the last choice, <b>Other (allow user entries)</b>.  
+If you don't, 
+your painstakingly-entered numbers will be WIPED OUT when you
+refresh the output!  The reason for this is that under ordinary
+circumstances, the program reads the observatory choice from the
+site menu and sets the observatory parameters every time a calculation 
+is called for (which is the behavior you'd generally want).  Selecting the
+<b>Other</b> choice overrides this behavior.
+<p>
+If you do need to load your own site by hand, note that 
+you can enter longitude in degrees east (the almanac
+convention) by appending " d e" to the longitude.  The
+value will reappear as hours, minutes, and seconds <i>west</i>,
+which is the program's internal convention.
+<p>
+Entering sites by hand gets old real fast, so you may want to
+customize the source code to include your favorite site.  Just
+look at <i>cooclasses.py</i> and follow the examples given there.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<b> The Object Menu </b>
+<p>
+<a name="objects"><h1><img src="objectwindow.png" align="center"></h1></a>
+</center>
+<p>
+If you push <b>Get object list</b> in the main window,
+a file-selection dialog box appears, and once you've
+selected a properly-formatted object list file, a window
+similar to the one above appears.  The expected object file 
+format is one object per line, given as 
+<pre>
+name     rah  ram  ras    decd  decm  decs   equinox
+</pre>
+or for example,
+<pre>
+4U2129+47   21 29 36.2   47 04 08  1950.
+</pre>
+You can't have any blank space in the name, and you 
+need three numbers for each coordinate separated by
+blank space. All the information has to be there (no
+defaults).  Otherwise the format is free -- the 
+numbers can be in any column.  If you have a negative
+dec, the minus sign must be flush with the degrees,
+as in
+<pre>
+PiStar   3 14 15.9   -0 03 14  2000
+</pre>
+(-0 evaluates correctly as a negative number).
+<p>
+Once you've loaded a list, <i>double-clicking</i> a selection
+in this box loads its coordinates in the program and
+refreshes all the output.  You can also load an object
+by typing its name into the "objname" field in the 
+main window and hitting carriage return.
+It is easy to check a list of targets for
+observability by running through the list while 
+looking at the Hourly Airmass window.
+The object list figures in several <a href = "#scenarios">use scenarios
+</a> described later. 
+<p>
+Using the buttons provided, you can sort the list in
+various obvious ways.  <b>List by proximity</b> is the least
+obvious -- this sorts in order
+of proximity to the currently-set coordinates.  The
+<b> dismiss list</b> button removes the objects from the 
+list and destroys the window.  You can have multiple
+lists open at the same time -- each press of the 
+<b>Get object list</b> button on the main window 
+creates a new list window.  Dismissing a list removes
+only the objects associated with that list.  If you
+load a new list which has an object that is already
+loaded (i.e., you create a name collision), the object
+is loaded with "|" appended and prepended to the name, for
+example <tt>vega</tt> would become <tt>|vega|</tt>.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<b>Text Tables</b>
+<p>
+<a name="texttasks"><h1><img src="textwindow.png" align="center"></h1></a>
+</center>
+<p>
+This window does computations that produce tables of data. 
+It holds up to 500 lines of output.  The object and site coordinates are
+taken from the main window; additional input parameters are set with the
+input boxes provided.  There are three different calculations available:
+<ul>
+<li> <b>Seasonal Observability</b> (shown above): 
+This option prints a table summarizing 
+the observability of the object at each new and full moon between the 
+start date and end date.  Each line gives the hour angle and airmass
+of the object at the start, middle, and end of the night (the start and
+end are defined by 18-degree twilight).  After that, three columns give
+the number of nighttime hours the object spends at less than 3, less
+than 2, and less than 1.5 airmasses.
+<li> <b>Compute Times</b> is one of two options that relate to 
+periodic phenomena outside the solar system, such as eclipses of 
+binary stars.  In the boxes provided, enter the barycentric (basically
+heliocentric) ephemeris of the object -- don't neglect the 
+uncertainties (the sigmas) of the zero point and the period!
+The "compute times" button lists predicted eclipse times and their
+uncertainties, both in time and phase.  The predicted times are
+<i>geocentric</i> -- they are the times the signals are predicted
+to arrive at earth.  Times are either local or UT, depending on the
+setting in the main window.
+<li> <b>Compute phases</b> is similar, but rather than listing
+predicted times when the phase is zero, it prints the predicted
+phase at repeating times.  The interval between the tabulated
+times is the <i>time step</i>.
+</ul>
+<p>
+The <i>max sunalt</i> and <i>max airmass</i> numbers are used
+to filter the output from "Compute Times" and "Compute phases"
+calculations, for example to those events visible during darkness
+from your site.  At the end of twilight, the altitude of the sun
+is -18 (the units are degrees).  To turn off filtering, set the
+max sunalt to +90 and the max airmass to -1.
+<p>
+The <b>Erase output</b> button clears the output window, and the 
+<b>Dump output</b> button writes the contents of the window to a
+text file "skycalc.out".     
+<p>
+The text tool used in the window is actually a primitive text editor.
+If you like, you can annotate your output before you write it 
+to a file.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<b> The Nightly Almanac </b>
+<p>
+<a name="nightly"><h1><img src="almanacwindow.png" align="center"></h1></a>
+</center>
+<p>
+
+The <b>Nightly Almanac</b> window lists the times 
+of various phenomena through the night.  If the input
+time from the main window is before noon, the 
+previous night is listed.
+<p>
+Rise and set times are adjusted
+for the depression of the horizon using the "elevhoriz"
+site parameter from the main window.  Refraction is
+taken into account and the rise- and set time refers 
+to the upper limb of the object.  Actual times
+will vary by around a minute because of refraction,
+and much more in sites with irregular horizons. 
+<p>
+Moonrise and moonset are listed in the order they
+occur.  One or the other may not be listed if it occurs 
+around mid-day.  You can expect bizarre behavior for 
+sites at very high latitudes.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<b> Alternate Coordinates</b>
+<p>
+<a name="altcoo"><h1><img src="coordwindow.png" align="center"></h1></a>
+</center>
+<p>
+Several rather arcane items appear on the 
+<b>Alternate Coordinates</b> window.  At the
+top are the coordinates at the date specified in
+the main window, corrected for precession and 
+proper motion (if any).  
+
+There are a few <b>input variables</b> in this
+window - they're here since most people won't
+need to use them much.  They are:
+<ul>
+<li> The <b>proper motion</b>
+<li> A <b>radiobutton</b> controlling the interpretation of
+the two numbers in the proper motion field; and 
+<li> The <b>epoch</b> (not equinox!) of the input 
+coordinates.
+<li> The <b>Galactic latitude and longitude.</b>  
+These are generally output variables, but entering
+a value and hitting a carriage return forces the 
+RA and dec in the main window to agree with the 
+Galactic coordinates.  The behavior is analogous
+to that of the "jd" field in the main window -- 
+mostly output, but can be used as input with
+a carriage return.  (This feature is not 
+implemented for the ecliptic coordinates.)
+</ul>
+<p>
+The two components of
+proper motion can be entered on the indicated
+line, and the radiobuttons control how the 
+proper motion will be interpreted (more below). 
+The units of proper motion are <font color="ff0000"> 
+milliarcsec per year </font> (not
+arcsec!) for the magnitude, and degrees for the 
+position angle (in the third choice). 
+<p>
+If the first radiobutton is checked, the first number
+in the PM pair is interpreted as the number of 
+milliarcsec per year 
+the object would move east on an image; if the 
+second button is pushed, the first number is 
+how many milliarcsec per year the right 
+ascension increases.  These are the same 
+at the equator, but away from the equator, the 
+second option requires a larger number to
+describe the same easterly motion.  Note that
+the second convention is used by the UCAC2.
+If the third radiobutton is checked, the proper
+motion pair is interpreted as a magnitude in
+milliarcsec per year and 
+a position angle in degrees (0 = moving due north, 
+90 = due east, and so on).
+<p>
+The "epoch" line requires careful explanation,
+since the distinction between <i>epoch</i> and 
+<i>equinox</i> is often not understood.  
+<ul>
+<li> The <i>equinox</i> of a set of coordinates
+refers to the date of the coordinate system, 
+that is, the date at which the precession 
+lines up with the coordinates which are quoted.
+In recent catalogs, this almost always 2000.
+<li> The <i>epoch</i> of coordinates only matters
+if there is proper motion.  It refers
+to the date at which the moving object was at the 
+position you're quoting.  Thus if
+you determine a position on a 1954 Sky Survey
+plate, but refer it to J2000 coordinates, it is
+epoch 1954, but equinox 2000.
+</ul>
+<p>
+The <i>epoch</i> field here is the epoch of the
+position quoted in the main window, and only 
+makes a difference if there is a non-zero 
+proper motion.
+(The <i>equinox</i>
+of the input coordinates is set in the main 
+window).  
+<p>
+Note that the 
+coordinates listed just below the epoch are for
+the coordinates at the time of the input 
+date specified in the main window, 
+but are referred to the input equinox -- 
+that is, they are corrected for proper motion 
+<i>only</i>, but not precessed. 
+<p>
+Ecliptic and galactic coordinates are given toward
+the bottom.  The galactic coordinates accurately
+conform to the IAU definition.
+<p>
+Since the figure was prepared, one more output
+variable has been added - the <i>parallax
+factors</i>, which are the parallax displacements
+in RA and dec for a star at unit distance, that
+is, the displacements in arcsec for a star at 
+1 pc - there are no stars that close, of course.
+<p>
+One note: The precession constants used are
+the ones recommended by the IAU in 1976.  The IAU
+has since recommended improved precession algorithms.
+These are not yet implemented here, but for most
+optical-astronomy purposes the differences will
+not be a concern. 
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<b> Planets</b>
+<p>
+<a name="planets"><h1><img src="planetwindow.png" align="center"></h1></a>
+</center>
+<p>
+The <b>planets window</b>
+gives low-precision coordinates of the planets,
+and their hour angle at the date and time specified
+in the main window.
+The last column gives the separation in the sky
+between the input coordinates and the planet.  When 
+this dips below 1 degree for any planet,
+the line for that planet turns orange.  An orange
+warning appears in the lower right of the main
+window, too, together with the name of the possibly
+troublesome planet(s).
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<center>
+<font size="+1">
+<a name="display"><b> The Planetarium Display</b></a>
+<p>
+<h1><img src="displaywindow.png" align="center"></h1>
+</center>
+<p>
+I've saved the best for last!
+<p>
+If you can get ppgplot going, you can run  
+<i>skycaldisp.py</i>, which is identical to 
+<i>skycalgui.py</i> except for the addition of this
+<b>planetarium display</b>.  
+<p>
+Some features:
+<ul>
+<li> The zenith is at the center of the plot.  The magnification
+of the projection increases away from the zenith.  Shapes are preserved
+locally, so constellations are recognizable.
+<li> The red dashed circles indicate 2, 3, and 4 airmasses.  The
+solid partial circle around the outside shows the horizon.
+Objects below the horizon are still plotted.  The display is cut
+off at the far north and south in order to give adequate scale 
+elsewhere.
+<li> The meridian and lines at 2-hour intervals of hour angle
+are shown, out to +-6 hours, and the celestial equator is drawn
+in.
+<li> Stars to 4th magnitude are shown sized according to brightness.
+They are rendered in white.
+<li> Solar system objects are rendered in yellow.  The moon is
+drawn in with the correct phase and orientation.  Its size is 
+exaggerated.  The sun is drawn with a sun symbol.  Planets through 
+Saturn are shown sized by magnitude, and the outer planets are 
+omitted.
+<li> A blue box indicates the location of the coordinates from 
+the main window.
+<li> If an <i>object list</i> is selected, all the object names are plotted
+on the display in green (and the names disappear on
+refresh after an object list is unloaded).
+In this version, the display isn't automatically refreshed 
+when a list is loaded, but it is refreshed as soon
+as you do anything.  The object's actual location is in the
+middle of its name, at the bottom. 
+</ul>
+<p>
+One useful strategy is to jump the time forward (or back) 
+by typing the left and right arrow keys in the main window.
+By varying the timestep, one can visualize hourly
+and daily circumstances (e.g, watching the moon move night by
+night through the various targets one has loaded).
+<p>
+As noted earlier, this display requires that ppgplot be 
+loaded, which in turn requires installation of PGPLOT and its 
+C-bindings.  This takes some doing, but is not particularly 
+difficult on recent Linux systems.  See the README included with
+the software distribution for some hints on environment variables
+which may be needed to run ppgplot. I've run into difficulties
+on Mac OS-X, probably because I'm unfamiliar with the architecture.
+I'd welcome details of successful Mac OS-X ports. 
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+<p>
+<center>
+<font size="+2">
+<a name="scenarios"><b>Skycalcgui in action: Some Scenarios. </b></a>
+</font>
+</center>
+<p>
+When a program gets this complicated, it can be helpful to 
+illustrate its use in some common situations.  
+<p>
+<b>I'm applying for observing time at Tololo.  What should
+I put for "Range of Acceptable Dates"?  Also, I need dark sky;  
+how far from new moon I can stand? </b>  
+<ul>
+<li> Select 'Cerro Tololo' in the <a href = "#site">Site Parameters</a>
+menu, then press 'Hide' to save screen space.
+<li> If you have more than just a couple of targets, edit their
+coordinates into a list as described in the 
+<a href = "#objects">Object Lists</a> section.  Otherwise just
+type the main target's coordinates into the input variables.
+<li> Once you have your target loaded, pop open a "Text Tables"
+window, and run the "Seasonal Observability" for the semester's
+start and end dates.  You can quickly see which dark runs will
+give you adequate time on your target.  
+<li> Once you've settled on a few dark runs, set the date and
+time to midnight during one of your chosen dark runs. 
+Set the timestep to 1 day.  Look at the 
+<a href "#hourly"> Hourly Airmass</a> window, and use
+the left- and right-arrow keys (typed into the main window)
+to step the time back and forth through the dark runs.  
+Watch the moonalt column in the Hourly Airmass display.  
+When it turns blue, the moonlight is predicted to roughly 
+double the sky brightness.  See the lunsky item in the main 
+window for actual values.  
+<li> Repeat as needed for all your high-priority targets.
+</ul>
+<p>
+After a little playing around, you'll have a good idea of the 
+range of dates, and how far from new moon you can accept.
+Of course, the lunar sky brightness values are not firm
+predictions -- haze, thin cloud, volcanic aerosols, or whatever 
+can greatly increase the sky brightness.   
+<p>
+<b>It's getting near twilight; I'm in the middle of an exposure 
+and realize that I'd like to grab a short exposure of another target,
+but twilight and airmass may be a problem. 
+I can be on target in about 25 minutes.  What will the 
+situation be then? </b>  
+<ul>
+<li> Enter the next object's coordinates.  If it's on a target
+list you've loaded you can just double-click it.
+<li> Hit "set to now".
+<li> Enter "25 m" in the timestep.  Advance the time by 
+hitting a carriage return or a right arrow.
+<li> Examine the output variables in the main window -- 
+the airmass and 'ztwilight' especially -- and see if there's 
+anything untoward. 
+</ul>
+<p>
+<b>I'm going observing next week.  I have a lot of potential
+targets, and am wondering which ones I might be able to get.</b>
+<ul>
+<li> Make a list of targets as described in the
+<a href = "#objects">Object Lists</a> section.  
+<li> Select a date during your run.  
+<li> Set the timestep to "1 d".
+<li> Step through your list, double-clicking to select targets,
+while watching the <a href = "#hourly">Hourly Airmass window</a>.
+<li> For each target, step the date back and forth with the 
+left and right arrow keys while watching the Hourly Airmass
+window.  The moonalt column will warn you if the moon might be 
+a particular problem for this target on any given night.
+<li> You might want to keep an eye on the "planet_proxim"
+warning box in the main window, to avoid unpleasant surprises.
+</ul>
+<p>
+If you have the <a href = "#display">planetarium display</a>
+these scenarios can all be made more vivid and intuitive.  This
+takes up a lot of screen real estate and requires a fast machine
+(e.g. recent PC) to redraw the display with acceptable speed. 
+Note that the planetarium display toggles on and
+off when you press its button on the main window.
+<p>
+Here is a scenario in which the planetarium display is
+especially helpful:
+<p>
+<b> I have two dozen targets of varying difficulty and 
+importance, a waxing moon, and only one night of observing time 
+left.  I won't be able to get to all of them.  How can I 
+visualize the situation through the night and decide which 
+ones to go for? </b>
+<ul>
+<li> Load up an <a href = "#objects">object list</a>.
+<li> Pop up the <a href = "#display">planetarium display</a>.
+<li> Set the timestep to "1 h" and the date to tonight ('set to 
+now' will do this if it's past noon).
+<li> Watch the display.  Keeping the mouse in the main control
+window, type left and right arrows to step back and forth through the night.
+<li> If you need more specific information on a particular 
+object, double-click it on the object list and examine the 
+hourly airmass and main windows.
+<li> Make the hard scientific choices about which objects to observe.
+The program can't help you here, but it can
+keep your choices within the realm of feasibility.
+<p>
+<a href="#contents">[Back to contents.]</a><p>
+</html>

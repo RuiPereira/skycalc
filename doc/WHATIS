@@ -1,0 +1,36 @@
+
+DOC CONTENTS:
+
+skycalcman.html, .pdf, .tex -- 
+
+	These are three versions of skycalcman, the manual
+	for the text-based skycalc program.  They're
+	all almost the same except for format.
+	The algorithms used and expected accuracy
+	are discussed fairly comprehensively.
+	
+guimanual.html --
+
+	This is  an HTML manual for the GUI, which
+	includes annotated screenshots.  The
+	various ".png" files are the screenshots.
+
+skysub.doc --
+
+	This describes how to use the raw skysub
+	routines in python scripts.   You should
+	also obviously be able to call these 
+	routines from C programs; skysub.h
+	is a file of function prototypes.
+
+NOTES:
+
+- The GUI versions have buttons which pop up a help text 
+  and a reference manual.  Hopefully these will be adequate 
+  for most users.
+
+- None of these manuals is a text on time-and-the-sky -- it
+  is assumed that the user is already familiar with
+  these topics.
+
+

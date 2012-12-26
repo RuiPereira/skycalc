@@ -1,0 +1,317 @@
+BRIEF INSTALLATION INSTRUCTIONS
+
+(More detailed instructions are below, but if you have
+a fairly standard Linux system and the supporting 
+packages are in place, these should work.)
+
+1) To compile and install the TEXT-BASED skycalc and 
+   skycalendar programs into /usr/local/bin type:
+
+	make
+
+   If this works, then 
+
+        su         (become root)
+
+	make install        	
+
+	make clean  		
+
+   If you need to put the executables into a directory
+   different from /usr/local/bin, edit the makefile 
+   appropriately beforehand.
+
+
+2) To install the GUI version(s) skycalcgui.py and 
+	skycalcdisp.py, 
+
+   a) Test that you have python and Tkinter by typing:
+
+		python        (invokes python interpreter)
+
+      and if that starts up OK type
+		
+		from Tkinter import *
+
+      If that works, you can probably run the stripped
+      down GUI without the display.  If you also get no
+      errors from:
+
+		from ppgplot import *
+
+		from numarray import *
+
+      then you can probably get the planetarium display
+      to work also.
+
+      Type CTRL-D to exit the python interpreter.
+
+   b) Compile and install by becoming root and typing:
+
+	su          (to become root)
+
+	python setup.py install
+
+   c) Test by typing 
+	
+	rehash   (if you're in the C-shell or tcsh; omit for
+		the bash shell)
+
+	skycalcgui.py
+
+	(if that runs and ppgplot is in place, then try:)
+
+	skycalcdisp.py
+
+NOTES: 
+
+  skycalcdisp.py requires one data file, "brightest.dat", which
+  is automatically saved as 
+	
+	/usr/local/share/skycalc/brightest.dat
+
+More detailed installation instructions are given below.
+
+GENERAL INFORMATION
+
+'skycalc' has long been used as a tool for planning and
+carrying out nighttime astronomical observations.  It 
+is designed to calculate observability, sun and moon 
+constraints, and the like.  Previous versions of the 
+program used a text-based interface.
+
+This release includes two GUI programs, which are 
+identical except that one includes a planetarium-like
+display.  This can be very useful, but it increases
+the complexity of installation because it is built
+on the PGPLOT plot package, which has been wrapped
+in C and then in Python.  
+
+The release also includes updates of the classic 
+'skycalc' and 'skycalendar' text-based programs, 
+and updated manuals, including an HTML version.
+
+PREREQUISITES
+
+The text-based programs require a C compiler and
+some standard libraries (like math and stdio). 
+These are found on almost all UNIX or Linux systems.
+
+For either of the GUIs, you will need :
+
+- Python - the package was built using Python 2.2.
+  I have not tested earlier or later versions, but
+  expect they'd probably work.
+
+  The main python web page is 
+
+	http://www.python.org
+
+
+- The Tkinter module.  To see if you have it type 
+  
+	python
+
+	import Tkinter
+
+  ... if this doesn't give an error, you're good to go.
+
+- A C compiler.  Virtually every Linux or Unix system 
+    has one of these.
+
+
+The planetarium display version, skycalcdisp.py, 
+  typically requires a LOT more work to get going,
+  because it depends on more stuff.  You can stop
+  right now and proceed to install the skycalcgui.py
+  if this is to daunting ... and you can always do the
+  install and come back to this part later.
+
+What you will need for the display version: 
+
+- PGPLOT.  This can be found at Tim Pearson's site at
+     Caltech,  
+
+     http://www.astro.caltech.edu/~tjp/pgplot/
+
+     It is not trivial to install but if you
+     follow his directions carefully it will work.  You
+     will need support for xwindow graphics output.  If
+     you have another color graphics terminal you prefer
+     you can alter the pgbeg('/xwin') statement in the 
+     skycaldisp.py source code.
+
+- The C-wrappers to PGPLOT, which are included with it.
+
+- The ppgplot Python wrapper, written by Nick Patavalis.
+     This is not hard to install once PGPLOT works correctly.
+     It has a setup.py which should install it smoothly.
+     You can download it from 
+
+	http://efault.net/npat/hacks/ppgplot/
+
+     Getting it to work properly is another matter -- see
+     below.
+
+- The numarray module, available from Space Telescope 
+   Science Institute.  Follow their directions.
+
+   http://www.stsci.edu/resources/software_hardware/numarray
+
+If you use IRAF, I recommend also installing Pyraf when you
+get numarray.  Pyraf offers a replacement for the IRAF
+cl shell and also a python wrapper for all the IRAF 
+routines, so one can write IRAF scripts in native python, 
+which is modern, beautifully-structured, full-featured, 
+generally-useful scripting language, rather than the 
+IRAF scripting language, which is none of these things.
+Numarray comes along almost for free with Pyraf. See:
+
+   http://www.stsci.edu/resources/software_hardware/pyraf
+
+The pyraf site also has useful python language overviews and
+links to lots of other good stuff.
+
+
+Once these packages are installed you should be able to type 
+
+	python
+
+	import ppgplot
+
+	import numarray 
+
+without getting any errors.
+
+So, ppgplot dies at run time?  It could be an environment 
+variable which isn't set correctly.  I've include a few notes 
+at the end about getting ppgplot to run.
+
+Note that if you can't get ppgplot running for some reason,
+you can still use skycalcgui.py, the non-display version.
+
+INSTALLATION
+
+Once you have all this stuff, the rest of the installation
+can be accomplished as follows on a UNIX or Linux machine.
+If you're reading this you've probably already done (1) through
+(5) .... 
+
+1) Become root
+
+2) go to /usr/local
+
+3) mkdir skycalcgui and cd into it
+
+4) unpack the tar archive
+
+	gunzip skycalcgui-1.0.tar.gz
+	tar xvf skycalgui-1.0.tar
+	
+5) cd skycalcgui-1.0
+
+6) install the text versions of the program:
+
+	make
+	
+	make install
+
+	make clean
+
+ - This will put the executables for skycalc and
+  skycaledar in /usr/local/bin.  If that isn't where 
+  you want 'em, edit the makefile to put them where 
+  you do want them.  The makefile is very simple,
+  since both programs are monolithic slabs of code.
+
+6)  install the GUI versions with:
+
+	python setup.py install
+
+... this should compile everything and put it in the 
+appropriate places where your system will find it. 
+By the way, this is made possible by the "distutils" 
+package in python.
+
+NOTE: skycalcdisp.py needs to access a truncated version
+of the bright star catalog, called 'brightest.dat'.  This
+file is included in the distribution.  It is installed
+by default in /usr/local/share/skycalc.  
+
+If the program can't find this bright star file, copy
+brightest.dat from the distribution directory to 
+wherever you want to keep it, look in the source code 
+for the variable BRIGHTSTARFILE right near the top, 
+and change it appropriately for your system.
+
+WHAT IF IT MISBEHAVES?
+
+If you start the program from the command line, it will
+report any error messages to the terminal it started
+from.  This may give some clue as to why it's screwing
+up.  Once the program is installed properly I would
+expect most errors to arise from errors in the input
+data, e.g. not separating a unit from a quantity with
+a space.
+
+Note that the calendrical routines only work from 1901
+to 2099, so input dates outside this range are rejected.
+This is probably just as well, since I do not know the
+span over which the algorithms can be expected to work
+accurately.  They're close enough in the range covered.
+
+A LITTLE BIT ABOUT GETTING ppgplot TO RUN
+
+Tim Pearson has very detailed instructions on how to
+install the base PGPLOT libraries.  Follow them to the
+letter and you should be OK.  The ppgplot module 
+should install smoothly, too, at least on a Linux 
+machine, using "python setup.py install".
+
+In order for ppgplot to actually _run_, though you 
+may need two environment variables set -- on my
+own system (using the bash shell) they're set as
+follows:
+
+	LD_LIBRARY_PATH=/usr/local/pgplot
+	PGPLOT_DIR=/usr/local/pgplot
+	export LD_LIBRARY_PATH PGPLOT_DIR
+	
+For the C-shell or its descendants you'd type:
+
+	setenv LD_LIBRARY_PATH /usr/local/pgplot
+	setenv PGPLOT_DIR /usr/local/pgplot
+
+The path you give (/usr/local/pgplot in this case)
+must be the location of the libpgplot.so file, i.e.
+the shared object library for pgplot, which is evidently
+loaded at runtime.
+	
+This seemed to do the trick, but "YMMV".  The 
+PGPLOT_DIR variable may not actually be necessary,
+but eliminating LD_LIBRARY_PATH seemed to break
+the program.  I don't understand these things in 
+any depth, just reporting what happened.
+
+
+Numeric vs. numarray issues:
+
+ppgplot was written by Nick Patavalis some years ago.
+He then dropped out of sight for a while, but resurfaced
+in 2002 and revised ppgplot (and there was much 
+rejoicing!).  The revised version can be configured to 
+prefer numarray or Numeric - my own is configured for 
+numarray.  If you only have Numeric and an old ppgplot, 
+you might try replacing references to the numarray module 
+in the code with references to Numeric, but I don't 
+think this will work since the planeterium uses the 
+pgqinf() routine, which does not appear to be wrapped 
+in the old ppgplot module.  Presumably a new ppgplot 
+built to use the Numeric module would work correctly in
+that circumstance.  Since Numeric is said to be obsolete,
+I'd think you'd want to go right to numarray.
+
+
+		John Thorstensen
+
+		2005 January

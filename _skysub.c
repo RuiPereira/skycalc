@@ -5759,7 +5759,7 @@ int find_by_name(double *ra, double *dec, double epoch, struct date_time date,
 
 	if(nobjects == 0) {
 		printf("No objects!\n");
-		return;
+		return(-1);
 	}
 
 	if(update_on == 1) {   

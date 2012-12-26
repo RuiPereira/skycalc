@@ -616,11 +616,11 @@ def time_to_jd(instuff = "NOW",stdz = 0.,use_dst = 0) :
 				print "Outside calendrical limits."
 				_skysub.delete_date_time(v)
 				return -1.
-			_skysub.date_time_y_set(v,y)
-			_skysub.date_time_mo_set(v,mo)
-			_skysub.date_time_d_set(v,float(x[2]))
-			_skysub.date_time_h_set(v,float(x[3]))
-			_skysub.date_time_mn_set(v,float(x[4]))
+			_skysub.date_time_y_set(v,int(y))
+			_skysub.date_time_mo_set(v,int(mo))
+			_skysub.date_time_d_set(v,int(x[2]))
+			_skysub.date_time_h_set(v,int(x[3]))
+			_skysub.date_time_mn_set(v,int(x[4]))
 			_skysub.date_time_s_set(v,float(x[5]))
 
 	elif type(instuff) == FloatType :	

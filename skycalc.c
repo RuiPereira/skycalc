@@ -7167,7 +7167,7 @@ int find_by_name(ra, dec, epoch, date, use_dst, enter_ut, night_date, stdz,
 
 	if(nobjects == 0) {
 		printf("No objects!\n");
-		return;
+		return(-1);
 	}
 
 #if SYS_CLOCK_OK == 1
